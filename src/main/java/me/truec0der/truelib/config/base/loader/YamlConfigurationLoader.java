@@ -17,45 +17,27 @@ public class YamlConfigurationLoader implements ConfigurationLoader<YamlConfigur
 
     @Override
     public YamlConfiguration load(File directory, String fileName) {
-        if (!directory.exists()) {
-            directory.mkdirs();
-        }
+        File configFile = new File(directory, fileName);
 
-        File file = new File(directory, fileName);
-        if (!file.exists()) {
-            try {
-                file.createNewFile();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
+        ensureResourceExists(configFile, fileName);
 
-        return YamlConfiguration.loadConfiguration(file);
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(configFile);
+        applyDefaults(config, fileName, configFile);
+
+        return config;
     }
 
     @Override
     public YamlConfiguration load(File directory, String fileName, String defaultFileName) {
-        if (!directory.exists()) {
-            directory.mkdirs();
-        }
+        File configFile = new File(directory, fileName);
+        boolean hasDefault = plugin.getResource(defaultFileName) != null;
 
-        File file = new File(directory, fileName);
-        if (!file.exists()) {
-            try {
-                file.createNewFile();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
+        String resourceToSave = hasDefault ? defaultFileName : fileName;
 
-        YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
-        InputStream defaultStream = plugin.getResource(defaultFileName);
+        ensureResourceExists(configFile, resourceToSave);
 
-        if (defaultStream != null) {
-            YamlConfiguration defaultConfig = YamlConfiguration.loadConfiguration(new InputStreamReader(defaultStream));
-            config.setDefaults(defaultConfig);
-            config.options().copyDefaults(true);
-        }
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(configFile);
+        applyDefaults(config, resourceToSave, configFile);
 
         return config;
     }
@@ -72,5 +54,26 @@ public class YamlConfigurationLoader implements ConfigurationLoader<YamlConfigur
     @Override
     public YamlConfiguration createNewConfig() {
         return new YamlConfiguration();
+    }
+
+    private void ensureResourceExists(File configFile, String resourceName) {
+        if (!configFile.exists()) {
+            plugin.saveResource(resourceName, false);
+        }
+    }
+
+    private void applyDefaults(YamlConfiguration config, String resourceName, File configFile) {
+        try (InputStream defaultStream = plugin.getResource(resourceName)) {
+            if (defaultStream == null) return;
+            try (InputStreamReader reader = new InputStreamReader(defaultStream)) {
+                YamlConfiguration defaults = YamlConfiguration.loadConfiguration(reader);
+                defaults.getKeys(false).stream()
+                        .filter(key -> !config.contains(key))
+                        .forEach(key -> config.set(key, defaults.get(key)));
+                save(config, configFile);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
