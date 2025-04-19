@@ -26,7 +26,7 @@ public abstract class ConfigHolder<T extends ConfigHolder<T>> extends ConfigSeri
     protected ConfigHolder(ConfigSettings configSettings) {
         this.directory = configSettings.getDirectory();
         this.file = configSettings.getFile();
-        this.defaultFile = configSettings.getDefaultFile();
+        this.defaultFile = configSettings.getDefaultFile() == null ? file : configSettings.getDefaultFile();
         this.loader = configSettings.getLoader();
         this.adapter = configSettings.getAdapter();
         this.configFile = new File(directory, file);
